@@ -7,4 +7,10 @@ ActiveRecord::Schema.define(:version => 1) do
      t.column :price_in_cents, :integer
    end
     
+   create_table :validated_things do |t|
+     t.column :name,   :string
+     t.column :required_in_cents, :integer, :null => false
+     t.column :optional_in_cents, :integer
+   end
+    
 end

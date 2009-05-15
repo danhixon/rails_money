@@ -14,7 +14,6 @@
 
 raise "Another Money Object is already defined!" if Object.const_defined?(:Money)
 
-class MoneyError < StandardError; end;
 class Money
   include Comparable
   attr_reader :cents
@@ -56,7 +55,7 @@ class Money
   
   # Divide by fixnum and return result as a Money object
   def /(denominator)
-    raise MoneyError, "Denominator must be a Fixnum. (#{denominator} is a #{denominator.class})"\
+    raise ArgumentError, "Denominator must be a Fixnum. (#{denominator} is a #{denominator.class})"\
       unless denominator.is_a? Fixnum
 
     result = []
@@ -89,6 +88,10 @@ class Money
     cents.to_f / 100
   end
 
+  # Allow validates_numericality_of to quietly turn this value into
+  # a float it can check.
+  alias_method :to_f, :dollars
+
   # Return the value in a string (in dollars)
   # if a zero_string is provided like "FREE" or "FREE!" or "$ --.--"
   # it will be returned instead of "$0.00"
@@ -110,12 +113,20 @@ class Money
   end
 
   private 
-  # Get a value in preperation for creating a new Money object. 
+  # Get a value in preparation for creating a new Money object.
+  # Raises if the value is a string with no meaningful numbers in it.
+  # (If we want to change this from liberally digging digits out of 
+  # whatever garbage we're given, to only accepting valid-looking strings,
+  # this is the place to fix that.) 
   def self.get_value(value)
-    value = value.gsub(/[^0-9.]/,'').to_f if value.kind_of?(String) 
-    value = 0 if value.nil?
-    unless value.kind_of?(Integer) or value.kind_of?(Float)
-      raise MoneyError, "Cannot create money from cents with #{value.class}. Fixnum required." 
+    case value
+    when String
+      value = Kernel.Float(value.gsub(/[^0-9.]/,''))
+    when Numeric
+    when nil
+      value = 0
+    else
+      raise TypeError, "Cannot create money from #{value.class}"
     end
     value
   end
