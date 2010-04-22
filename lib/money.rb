@@ -17,6 +17,7 @@ raise "Another Money Object is already defined!" if Object.const_defined?(:Money
 class MoneyError < StandardError; end;
 class Money
   include Comparable
+  include ActionView::Helpers::NumberHelper
   attr_reader :cents
   
   # Create a new Money object with value. Value can be a Float (Dollars.cents) or Fixnum (Dollars).
@@ -28,10 +29,12 @@ class Money
   def self.create_from_cents(value)
     return Money.new(Money.get_value(value)/100.0)
   end
-    
+  def -@
+    @cents = (Money.create_from_cents -cents)
+  end  
   # Equality. 
   def eql?(other)
-   (cents <=> other.cents)
+    cents <=> other.to_money.cents
   end
 
   # Equality for Comparable.
@@ -69,6 +72,10 @@ class Money
     result
   end
   
+  def abs
+    return Money.create_from_cents cents.abs
+  end
+
   # Is this free?
   def free?
     return (cents == 0)
@@ -88,20 +95,16 @@ class Money
   # Return the value in a string (in dollars)
   # if a zero_string is provided like "FREE" or "FREE!" or "$ --.--"
   # it will be returned instead of "$0.00"
-  def to_s(zero_string=nil)
-    return zero_string if zero_string && free?
-    seperated = "#{sprintf("%.2f",dollars)}".to_s.split(".")
-    if dollars>=0
-      seperated[0] = seperated[0].to_s.reverse.scan(/..?.?/).join(",").reverse
-      "$#{seperated.join(".")}"
+  def to_s(options = {:zero_string=>nil})
+    return options[:zero_string] if options[:zero_string] && free?
+    if cents >= 0
+      number_to_currency(cents.to_f/100, options)
     else
-      seperated[0] = seperated[0].to_s.delete("-").reverse.scan(/..?.?/).join(",").reverse
-      "-$#{seperated.join(".")}"
+      "(#{number_to_currency(cents.to_f/100, options).gsub("-","")})"
     end
   end
 
-
-  # Conversation to self
+  # Conversion to self
   def to_money
     self
   end
@@ -109,6 +112,7 @@ class Money
   private 
   # Get a value in preperation for creating a new Money object. 
   def self.get_value(value)
+    return value.dollars if value.is_a?(Money)
     value = value.gsub(/[^0-9.]/,'').to_f if value.kind_of?(String) 
     value = 0 if value.nil?
     unless value.kind_of?(Integer) or value.kind_of?(Float)

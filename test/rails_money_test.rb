@@ -14,7 +14,10 @@ class RailsMoneyTest < Test::Unit::TestCase
     assert_kind_of Money, price
     assert_equal "$1.25", thing.price.to_s
   end
-  
+  def test_negative_method
+    price = thing.price
+    assert_equal("($1.25)", (-price).to_s)
+  end
   def test_should_set_price_from_money_object
     thing1 = thing 
     thing1.price = Money.new(1095)
@@ -67,16 +70,25 @@ class MoneyTest < Test::Unit::TestCase
     assert_equal 1220, money.cents
     assert_instance_of Fixnum, money.cents 
   end
+
+  def test_should_create_money_object_from_another_money_object
+    money =  Money.new(12.196)
+    assert_equal 1220, money.cents
+    new_money = Money.new(money)
+    assert_equal 1220, new_money.cents
+  end
   
   def test_should_raise_exception_if_invalid_type_passed_to_initialize
     assert_raise(MoneyError) { Money.new([]) }
   end
 
-  def test_should_return_free_on_to_s_if_cents_is_zero
+  def test_should_return_correct_value_on_to_s_if_cents_is_zero
     cash_money = Money.new(0)
-    assert_equal 'free', cash_money.to_s
+    assert_equal '$0.00', cash_money.to_s
+    assert_equal 'free', cash_money.to_s(:zero_string => 'free')
     assert_equal true, cash_money.free?
     assert_equal true, cash_money.zero?
+    
   end
 
   def test_should_be_comparable
