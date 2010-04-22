@@ -3,8 +3,19 @@ require File.dirname(__FILE__) + '/test_helper'
 class Thing < ActiveRecord::Base
 end
 
+class ValidatedThing < ActiveRecord::Base
+  validates_numericality_of :required, :greater_than => 0.50,
+    :less_than_or_equal_to => 20 # implies allow_nil => false
+  validates_numericality_of :optional, :greater_than => 0.50,
+    :less_than_or_equal_to => 20, :allow_nil => true
+end
+
 def thing
   Thing.new(:name => "Thing One",:price_in_cents=> 125)
+end
+
+def validated_thing
+  ValidatedThing.new(:name => "Thing Two")
 end
 
 class RailsMoneyTest < Test::Unit::TestCase
@@ -45,12 +56,22 @@ class RailsMoneyTest < Test::Unit::TestCase
     assert_equal 1000, thing1.price_in_cents
   end
 
-  def test_should_format_correctly
-    assert_equal "$12.40", Money.new(12.40).to_s
+  def test_should_validate_successfully
+    thing1 = validated_thing
+    thing1.required = 1.25
+    assert thing1.valid?, "#{thing1.inspect} - #{thing1.errors.full_messages.to_sentence}"
   end
 
-  def test_should_raise_exception_setting_invalid_price
-    assert_raise(MoneyError) { thing.price = [] }
+  def test_should_fail_to_validate_successfully
+    thing1 = validated_thing
+    [0.01, 100, -100, "orange"].each do |x|
+      thing1.required = x
+      assert !thing1.valid?
+      assert thing1.errors.invalid?(:required)
+    end
+    thing1.required = 10
+    assert thing1.valid?, "#{thing1.inspect} - #{thing1.errors.full_messages.to_sentence}"
+    assert !thing1.errors.invalid?(:optional)
   end
 end
 
@@ -79,7 +100,7 @@ class MoneyTest < Test::Unit::TestCase
   end
   
   def test_should_raise_exception_if_invalid_type_passed_to_initialize
-    assert_raise(MoneyError) { Money.new([]) }
+    assert_raise(TypeError) { Money.new([]) }
   end
 
   def test_should_return_correct_value_on_to_s_if_cents_is_zero
@@ -114,11 +135,11 @@ class MoneyTest < Test::Unit::TestCase
     assert_equal Money.new(11.99), Money.new(3.33) * 3.6 # 1198.9
   end
 
-  def test_should_divide_money_and_retur_array_of_monies
+  def test_should_divide_money_and_return_array_of_monies
     money_array = [Money.new(3.34), Money.new(3.33), Money.new(3.33)]
     assert_equal money_array, Money.new(10.00) / 3
     assert_equal [Money.new(2.00), Money.new(2.00)], Money.new(4.00) / 2
-    assert_raises(MoneyError) { Money.new(4.00) / 2.2 }
+    assert_raises(ArgumentError) { Money.new(4.00) / 2.2 }
   end
 
   def test_should_implement_to_money
@@ -131,4 +152,7 @@ class MoneyTest < Test::Unit::TestCase
     assert_equal Money.new(1.50), Money.create_from_cents(150)
   end
 
+  def test_should_format_correctly
+    assert_equal "$12.40", Money.new(12.40).to_s
+  end
 end
